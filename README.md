@@ -2,7 +2,13 @@
 
 I need to learn about device-device communications over a network in order to build the communications/telemetry modules for my drones. This repo holds that effort.
 
-## Communicating with the RPi Pico 
+## Moving to the ESP8266-12F Board for Dev
+
+I could not easily make the ESP8266-01 board work alongside the Pico board, so I am moving to the ESP8266-12F board (ESP8266 chip with decent pinout). 
+
+Ampy does work to communicate with the ESP8266 board, you just need to turn off the board's automatic `osDebug` feature so that debug outputs don't confuse Ampy. Follow [this](https://pythonforundergradengineers.com/upload-py-files-to-esp8266-running-micropython.html) guide for instructions on how to do that.  
+
+## Communicating with the RPi Pico && ESP8266
 
 Ampy turns your chosen dev environment into a micropython IDE. 
 

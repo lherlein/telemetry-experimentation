@@ -1,11 +1,9 @@
 from machine import Pin, I2C, PWM, UART
-from bmp180 import BMP180
-from mpu6050 import MPU6050
-from controller import PID, PI
+from lib.mpu6050 import MPU6050
 import time
 import math
 import machine
-import _thread
+import socket
 
 def calibrateSensors():
   sealevel = 0
@@ -31,14 +29,6 @@ def readIMU():
 
   return [accelData, gyroData]
 
-def readBMP():
-  # Get BMP Data
-  pressure = bmp.pressure
-  altitude = bmp.altitude
-  temperature = bmp.temperature
-
-  return [pressure, altitude, temperature]
-
 def calcAngles(imuData): # Not entirely sure this will work when in flight
 
   # Get Accelerometer Data
@@ -49,135 +39,63 @@ def calcAngles(imuData): # Not entirely sure this will work when in flight
 
   return [phi, theta]
 
-def rad2deg(rad):
-  return rad * 180 / math.pi
-
-def deg2rad(deg):
-  return deg * math.pi / 180
-
-def ms2ns(ms):
-  return ms * 1000000
-
-def pos2u16(pos):
-  # get value between 0 and 100 representing servo position
-  # return value between 0 and 65535 representing duty cycle between 0 and 100%
-  # MUST KEEP RETURN BETWEEN 5-10% DUTY CYCLE
-
-  # 0 input -> 65535*0.05
-  # 100 input -> 65535*0.1
-
-  posPercent = pos / 100
-
-  # convert posPercent to duty cycle within bounds
-  duty = 0.05 + posPercent * 0.05
-
-  return int(duty * 65535)
-
-#Function to handle reading from the uart serial to a buffer
-def SerialRead(mode):
-  SerialRecv = ""
-  if mode == "0" :
-    SerialRecv=str(uart.readline())
-  else:
-    SerialRecv=str(uart.read(mode))
-  #replace generates less errors than .decode("utf-8")
-  SerialRecv=SerialRecv.replace("b'", "")
-  SerialRecv=SerialRecv.replace("\\r", "")
-  SerialRecv=SerialRecv.replace("\\n", "\n")
-  SerialRecv=SerialRecv.replace("'", "")
-  return SerialRecv
-
-
-print("Starting...")
+def do_connect():
+  import network
+  sta_if = network.WLAN(network.STA_IF)
+  if not sta_if.isconnected():
+    print('connecting to network...')
+    sta_if.active(True)
+    sta_if.connect('<ssid>', '<key>')
+    while not sta_if.isconnected():
+        pass
+  print('network config:', sta_if.ifconfig())
+  return sta_if.ifconfig()[0]
 
 # Define Pins
-mpuSDA = Pin(14) # i2c 1
-mpuSCL = Pin(15)
 
-bmpSDA = Pin(16) # i2c 0
-bmpSCL = Pin(17)
+rx_pin = Pin(13)
+tx_pin = Pin(15)
 
-wifiRx = Pin(0)
-wifiTx = Pin(1)
+uart = UART(0, baudrate=115200, rx=rx_pin, tx=tx_pin)
 
 # Define I2C Busses
-i2c_mpu = I2C(1, sda=mpuSDA, scl=mpuSCL)
-i2c_bmp = I2C(0, sda=bmpSDA, scl=bmpSCL)
+#i2c_mpu = I2C(1, sda=mpuSDA, scl=mpuSCL)
 
 # Define Sensors
-bmp = BMP180(i2c_bmp)
-mpu = MPU6050(i2c_mpu)
+#mpu = MPU6050(i2c_mpu)
 
 # Calibrate Everything
-print("Calibrating Sensors")
-normalValues = calibrateSensors()
+#normalValues = calibrateSensors()
 
 # Wake up MPU
-print("Waking up MPU")
-mpu.wake()
+#mpu.wake()
 
-# Start Webserver
-print("Starting Webserver")
-#Set variables
-recv=""
-recv_buf="" 
-# wifi credentials (if needed)
-wifi_ssid = ("sofia")
-wifi_password = ("19631964")
+# Check if connected to wifi
 
-print ("Setting up Webserver...")
-uart = UART(0,115200, tx=Pin(0), rx=Pin(1)) # uart on uart1 with baud of 115200
-time.sleep(2)
-# Connect to wifi, this only needs to run once, ESP will retain the CWMODE and wifi details and reconnect after power cycle, leave commented out unless this has been run once.
-print ("  - Setting AP Mode...")
-uart.write('AT+CWMODE=1'+'\r\n')
-time.sleep(2)
-print ("  - Connecting to WiFi...")
-uart.write('AT+CWJAP="'+wifi_ssid+'","'+wifi_password+'"'+'\r\n')
-time.sleep(5)
-print ("  - Setting Connection Mode...")
-uart.write('AT+CIPMUX=1'+'\r\n')
-time.sleep(2)
-print ("  - Starting Webserver..")
-uart.write('AT+CIPSERVER=1,80'+'\r\n') #Start webserver on port 80
-time.sleep(2)
-# Get local IP and print result
-uart.write('AT+CIFSR'+'\r\n')
-time.sleep(0.5)
-ipRes = uart.read()
-print(ipRes)
+# If not, connect to wifi
 
-print ("Webserver Ready!")
-print("")
+# Establish UDP Client
+
+ip = do_connect()
+
+UDP_IP = ip
+UDP_PORT = 5005
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
 
 # Main Loop
 while True:
   # Read IMU Data
-  imuData = readIMU()
-
-  # Read BMP Data
-  bmpData = readBMP()
-
   # Calculate Angles
-  angles = calcAngles(imuData)
-  angles = [rad2deg(angles[0]), rad2deg(angles[1])]
 
-  # Craft Data String
-  data = "Angles: " + str(angles) + "\n" + "Pressure: " + str(bmpData[0]) + "\n" + "Altitude: " + str(bmpData[1]) + "\n" + "Temperature: " + str(bmpData[2]) + "\n"
+  # Send req to server for setpoint - include IMU data as bonus
 
+  # Wait for server response - includes setpoint for PID
+
+  # Pass setpoint to Flight Controller - UART connected to FC
+
+
+  # For now, just print the udp message
+  data, addr = sock.recvfrom(1024)
   print(data)
-
-  # Get Data Length
-  dataLength = len(data)
-
-  uart.write('AT+CIPSEND=0,'+str(dataLength)+'\r\n')
-  time.sleep(0.1)
-  uart.write(data)
-
-  while True:
-    #read a byte from serial into the buffer
-    recv=SerialRead(1)
-    recv_buf=recv_buf+recv
-
-    print(recv)
-    time.sleep(0.1)
