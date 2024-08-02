@@ -4,6 +4,8 @@ import time
 import math
 import machine
 import socket
+import network
+import urequests
 
 def calibrateSensors():
   sealevel = 0
@@ -40,16 +42,13 @@ def calcAngles(imuData): # Not entirely sure this will work when in flight
   return [phi, theta]
 
 def do_connect():
-  import network
-  sta_if = network.WLAN(network.STA_IF)
-  if not sta_if.isconnected():
+  wlan = network.WLAN(network.STA_IF)
+  wlan.active(True)
+  if not wlan.isconnected():
     print('connecting to network...')
-    sta_if.active(True)
-    sta_if.connect('<ssid>', '<key>')
-    while not sta_if.isconnected():
-        pass
-  print('network config:', sta_if.ifconfig())
-  return sta_if.ifconfig()[0]
+    wlan.connect('ssid', 'password')
+    while not wlan.isconnected():
+      pass
 
 # Define Pins
 

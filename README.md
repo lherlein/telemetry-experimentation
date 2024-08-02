@@ -8,6 +8,10 @@ I could not easily make the ESP8266-01 board work alongside the Pico board, so I
 
 Ampy does work to communicate with the ESP8266 board, you just need to turn off the board's automatic `osDebug` feature so that debug outputs don't confuse Ampy. Follow [this](https://pythonforundergradengineers.com/upload-py-files-to-esp8266-running-micropython.html) guide for instructions on how to do that.  
 
+## Moving back to the RPi Pico W
+
+I decided to just use the RPI pico W for the telemetry board, as they are cheaper than I primarily thought if you buy direct from source. This also makes the engineering effort much easier.
+
 ## Communicating with the RPi Pico && ESP8266
 
 Ampy turns your chosen dev environment into a micropython IDE. 
